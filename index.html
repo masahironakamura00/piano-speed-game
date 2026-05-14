@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Piano Speed Challenge</title>
+<style>
+  /* =========================================
+     リセット & 全体設定
+     ========================================= */
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    /* クラシックなセピア・羊皮紙風背景 */
+    background: radial-gradient(ellipse at center, #F5E8C7 0%, #E8D4A2 40%, #C9A876 100%);
+    font-family: "Times New Roman", "Hiragino Mincho ProN", "Yu Mincho", serif;
+    touch-action: manipulation;
+    color: #3D2817;
+  }
+
+  /* =========================================
+     装飾的な額縁(クラシックな二重枠線)
+     ========================================= */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    border: 2px solid #8B5A2B;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    top: 18px;
+    left: 18px;
+    right: 18px;
+    bottom: 18px;
+    border: 1px solid #8B5A2B;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* =========================================
+     ヘッダーエリア
+     ========================================= */
+  .header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 32px 50px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 10;
+  }
+
+  /* タイトル(クラシック書体) */
+  .title {
+    font-family: "Times New Roman", "Hiragino Mincho ProN", serif;
+    font-size: 26px;
+    font-weight: 400;
+    color: #3D2817;
+    letter-spacing: 4px;
+    font-style: italic;
+    text-align: center;
+    flex: 1;
+  }
+
+  .title-sub {
+    display: block;
+    font-size: 12px;
+    letter-spacing: 6px;
+    color: #8B5A2B;
+    margin-top: 4px;
+    font-style: normal;
+  }
+
+  /* 装飾用シンボル */
+  .title::before,
+  .title::after {
+    content: "❦";
+    color: #8B5A2B;
+    margin: 0 16px;
+    font-size: 18px;
+  }
+
+  /* タイマー(真鍮プレート風) */
+  .timer-display {
+    background: linear-gradient(180deg, #F0E0B8 0%, #D4B888 100%);
+    padding: 14px 32px;
+    border: 2px solid #8B5A2B;
+    border-radius: 4px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.5),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.1),
+      0 2px 6px rgba(61, 40, 23, 0.3);
+    min-width: 200px;
+    text-align: center;
+  }
+
+  .timer-label {
+    font-size: 11px;
+    color: #6B4423;
+    font-weight: 400;
+    letter-spacing: 4px;
+    font-style: italic;
+  }
+
+  .timer-value {
+    font-size: 32px;
+    font-weight: 400;
+    color: #2C1810;
+    font-family: "Times New Roman", "Georgia", serif;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 1px;
+  }
+
+  /* ベストタイム(古い記録簿風) */
+  .best-display {
+    background: linear-gradient(180deg, #E8D4A2 0%, #C9A876 100%);
+    padding: 12px 24px;
+    border: 2px solid #8B5A2B;
+    border-radius: 4px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.4),
+      0 2px 6px rgba(61, 40, 23, 0.3);
+    text-align: center;
+  }
+
+  .best-label {
+    font-size: 10px;
+    color: #6B4423;
+    font-weight: 400;
+    letter-spacing: 3px;
+    font-style: italic;
+  }
+
+  .best-value {
+    font-size: 18px;
+    font-weight: 400;
+    color: #2C1810;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* =========================================
+     中央のステータスメッセージ
+     ========================================= */
+  .status-message {
+    position: absolute;
+    top: 42%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 36px;
+    font-weight: 400;
+    color: #3D2817;
+    font-family: "Times New Roman", "Hiragino Mincho ProN", serif;
+    font-style: italic;
+    letter-spacing: 3px;
+    pointer-events: none;
+    z-index: 5;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    text-align: center;
+    white-space: nowrap;
+    text-shadow: 1px 1px 0 rgba(255, 248, 220, 0.8);
+  }
+
+  .status-message.show {
+    opacity: 1;
+  }
+
+  /* =========================================
+     ピアノ筐体(マホガニー木目調)
+     ========================================= */
+  .piano-frame {
+    position: absolute;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 24px 28px 32px;
+    background: linear-gradient(180deg, #5D3A1F 0%, #4A2D17 50%, #3D2817 100%);
+    border-radius: 6px;
+    border: 3px solid #2C1810;
+    box-shadow:
+      0 8px 20px rgba(0, 0, 0, 0.4),
+      inset 0 2px 0 rgba(255, 255, 255, 0.1),
+      inset 0 -2px 0 rgba(0, 0, 0, 0.3);
+    z-index: 3;
+  }
+
+  /* 真鍮ロゴプレート */
+  .piano-frame::before {
+    content: "Bösendorfer · Anno MMXXVI";
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9px;
+    color: #D4B888;
+    font-family: "Times New Roman", serif;
+    font-style: italic;
+    letter-spacing: 3px;
+    opacity: 0.7;
+  }
+
+  /* 鍵盤コンテナ */
+  .piano-keys {
+    display: flex;
+    gap: 2px;
+    background: #1A0F08;
+    padding: 6px 4px 0;
+    border-radius: 2px;
+    position: relative;
+  }
+
+  /* =========================================
+     白鍵(アイボリー色)
+     ========================================= */
+  .key {
+    width: 78px;
+    height: 280px;
+    background: linear-gradient(180deg, #FFF8E7 0%, #F5E8C7 95%, #E8D4A2 100%);
+    border-radius: 0 0 4px 4px;
+    border: 1px solid #8B7355;
+    border-top: none;
+    box-shadow:
+      inset 0 -8px 12px rgba(139, 90, 43, 0.15),
+      inset 1px 0 0 rgba(255, 255, 255, 0.6),
+      inset -1px 0 0 rgba(139, 90, 43, 0.2),
+      0 4px 0 #6B4423,
+      0 5px 8px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    padding-bottom: 18px;
+    cursor: pointer;
+    transition: transform 0.04s ease, box-shadow 0.04s ease;
+    position: relative;
+    touch-action: none;
+  }
+
+  /* 音名ラベル(セリフ体) */
+  .key-label {
+    font-family: "Times New Roman", "Hiragino Mincho ProN", serif;
+    font-size: 18px;
+    font-weight: 400;
+    color: #6B4423;
+    margin-bottom: 6px;
+    font-style: italic;
+    letter-spacing: 1px;
+  }
+
+  /* イタリア音名 */
+  .key-solfege {
+    font-family: "Times New Roman", serif;
+    font-size: 11px;
+    color: #8B7355;
+    font-style: italic;
+    letter-spacing: 1px;
+  }
+
+  /* 順番番号(ローマ数字、真鍮メダル風) */
+  .key-number {
+    position: absolute;
+    top: 24px;
+    font-family: "Times New Roman", serif;
+    font-size: 20px;
+    font-weight: 400;
+    color: #8B7355;
+    font-style: italic;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: linear-gradient(180deg, #F0E0B8 0%, #D4B888 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #8B5A2B;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.5),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+  }
+
+  /* 次に押すべき鍵盤(ろうそくの炎のように脈動) */
+  .key.next {
+    background: linear-gradient(180deg, #FFFAEB 0%, #FFE8B8 100%);
+    animation: candleGlow 1.5s ease-in-out infinite;
+  }
+
+  .key.next .key-number {
+    background: linear-gradient(180deg, #C9A876 0%, #8B5A2B 100%);
+    color: #FFF8E7;
+    border-color: #6B4423;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.3),
+      0 0 12px rgba(180, 130, 60, 0.6);
+  }
+
+  @keyframes candleGlow {
+    0%, 100% {
+      box-shadow:
+        inset 0 -8px 12px rgba(139, 90, 43, 0.15),
+        inset 1px 0 0 rgba(255, 255, 255, 0.6),
+        inset -1px 0 0 rgba(139, 90, 43, 0.2),
+        0 4px 0 #6B4423,
+        0 5px 8px rgba(0, 0, 0, 0.3);
+    }
+    50% {
+      box-shadow:
+        inset 0 -8px 12px rgba(139, 90, 43, 0.15),
+        inset 1px 0 0 rgba(255, 255, 255, 0.6),
+        inset -1px 0 0 rgba(139, 90, 43, 0.2),
+        0 4px 0 #6B4423,
+        0 5px 8px rgba(0, 0, 0, 0.3),
+        0 0 24px rgba(180, 130, 60, 0.5);
+    }
+  }
+
+  /* 押下時(実際に沈み込む) */
+  .key.pressed {
+    transform: translateY(4px);
+    background: linear-gradient(180deg, #F5E8C7 0%, #E8D4A2 100%);
+    box-shadow:
+      inset 0 -4px 8px rgba(139, 90, 43, 0.25),
+      inset 1px 0 0 rgba(255, 255, 255, 0.4),
+      inset -1px 0 0 rgba(139, 90, 43, 0.3),
+      0 0 0 #6B4423,
+      0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+
+  /* 完了済み(色褪せた金色) */
+  .key.done {
+    background: linear-gradient(180deg, #E8D4A2 0%, #C9A876 100%);
+    border-color: #6B4423;
+  }
+
+  .key.done .key-number {
+    background: linear-gradient(180deg, #8B5A2B 0%, #6B4423 100%);
+    color: #FFF8E7;
+    border-color: #4A2D17;
+  }
+
+  .key.done .key-label,
+  .key.done .key-solfege {
+    color: #4A2D17;
+  }
+
+  /* =========================================
+     リスタートボタン(クラシック調)
+     ========================================= */
+  .restart-btn {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, calc(-50% + 90px));
+    background: linear-gradient(180deg, #6B4423 0%, #4A2D17 100%);
+    color: #F5E8C7;
+    border: 2px solid #2C1810;
+    padding: 16px 48px;
+    border-radius: 4px;
+    font-family: "Times New Roman", "Hiragino Mincho ProN", serif;
+    font-size: 18px;
+    font-weight: 400;
+    font-style: italic;
+    letter-spacing: 4px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.2),
+      0 4px 0 #2C1810,
+      0 6px 12px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    z-index: 6;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease, transform 0.1s ease, box-shadow 0.1s ease;
+  }
+
+  .restart-btn.show {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .restart-btn:active {
+    transform: translate(-50%, calc(-50% + 94px));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      0 0 0 #2C1810,
+      0 2px 6px rgba(0, 0, 0, 0.3);
+  }
+
+  /* =========================================
+     クリア時の音符パーティクル
+     ========================================= */
+  .note-particle {
+    position: absolute;
+    font-family: "Times New Roman", serif;
+    pointer-events: none;
+    z-index: 4;
+    will-change: transform;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+  }
+
+  /* =========================================
+     レスポンシブ対応(iPad)
+     ========================================= */
+  @media (orientation: portrait) {
+    .key {
+      width: 72px;
+      height: 260px;
+    }
+    .title {
+      font-size: 22px;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .key {
+      width: 64px;
+      height: 240px;
+    }
+    .key-label {
+      font-size: 15px;
+    }
+    .key-solfege {
+      font-size: 10px;
+    }
+    .key-number {
+      width: 32px;
+      height: 32px;
+      font-size: 16px;
+      top: 18px;
+    }
+    .title {
+      font-size: 18px;
+      letter-spacing: 2px;
+    }
+    .title::before,
+    .title::after {
+      margin: 0 8px;
+    }
+    .timer-value {
+      font-size: 26px;
+    }
+    .timer-display {
+      min-width: 160px;
+      padding: 10px 20px;
+    }
+    .status-message {
+      font-size: 28px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- ヘッダー: タイマー / タイトル / ベスト -->
+<div class="header">
+  <div class="timer-display">
+    <div class="timer-label">TEMPO</div>
+    <div class="timer-value" id="timer">0.000</div>
+  </div>
+  <div class="title">
+    Piano Speed Challenge
+    <span class="title-sub">CLASSICAL EDITION</span>
+  </div>
+  <div class="best-display">
+    <div class="best-label">RECORD</div>
+    <div class="best-value" id="best">—.———</div>
+  </div>
+</div>
+
+<!-- ステータスメッセージ -->
+<div class="status-message" id="status">— Press the lowest Do to begin —</div>
+
+<!-- リスタートボタン -->
+<button class="restart-btn" id="restartBtn">Da Capo</button>
+
+<!-- ピアノ筐体 + 鍵盤 -->
+<div class="piano-frame">
+  <div class="piano-keys" id="piano">
+    <!-- data-note: 順番 / data-freq: 周波数(Hz) -->
+    <div class="key" data-note="0" data-freq="261.63">
+      <div class="key-number">I</div>
+      <div class="key-label">ド</div>
+      <div class="key-solfege">Do</div>
+    </div>
+    <div class="key" data-note="1" data-freq="293.66">
+      <div class="key-number">II</div>
+      <div class="key-label">レ</div>
+      <div class="key-solfege">Re</div>
+    </div>
+    <div class="key" data-note="2" data-freq="329.63">
+      <div class="key-number">III</div>
+      <div class="key-label">ミ</div>
+      <div class="key-solfege">Mi</div>
+    </div>
+    <div class="key" data-note="3" data-freq="349.23">
+      <div class="key-number">IV</div>
+      <div class="key-label">ファ</div>
+      <div class="key-solfege">Fa</div>
+    </div>
+    <div class="key" data-note="4" data-freq="392.00">
+      <div class="key-number">V</div>
+      <div class="key-label">ソ</div>
+      <div class="key-solfege">Sol</div>
+    </div>
+    <div class="key" data-note="5" data-freq="440.00">
+      <div class="key-number">VI</div>
+      <div class="key-label">ラ</div>
+      <div class="key-solfege">La</div>
+    </div>
+    <div class="key" data-note="6" data-freq="493.88">
+      <div class="key-number">VII</div>
+      <div class="key-label">シ</div>
+      <div class="key-solfege">Si</div>
+    </div>
+    <div class="key" data-note="7" data-freq="523.25">
+      <div class="key-number">VIII</div>
+      <div class="key-label">ド</div>
+      <div class="key-solfege">Do</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* =========================================
+     ゲーム状態管理
+     ========================================= */
+  const TOTAL_KEYS = 8;           // 鍵盤の総数
+  let currentNote = 0;            // 次に押すべき鍵盤の番号
+  let startTime = 0;              // タイマー開始時刻
+  let isPlaying = false;          // ゲーム進行中フラグ
+  let isFinished = false;         // クリア済みフラグ
+  let timerRAF = null;            // requestAnimationFrameのID
+  let audioCtx = null;            // Web Audio APIコンテキスト
+
+  // DOM要素
+  const timerEl = document.getElementById('timer');
+  const bestEl = document.getElementById('best');
+  const statusEl = document.getElementById('status');
+  const restartBtn = document.getElementById('restartBtn');
+  const keys = document.querySelectorAll('.key');
+
+  /* =========================================
+     ベストタイム読み込み(localStorage)
+     ========================================= */
+  function loadBest() {
+    try {
+      const best = localStorage.getItem('piano_best_time');
+      if (best) {
+        bestEl.textContent = parseFloat(best).toFixed(3);
+      }
+    } catch (e) {
+      console.log('localStorage 利用不可');
+    }
+  }
+
+  /* =========================================
+     ベストタイム保存(より速ければ更新)
+     ========================================= */
+  function saveBest(time) {
+    try {
+      const current = localStorage.getItem('piano_best_time');
+      if (!current || time < parseFloat(current)) {
+        localStorage.setItem('piano_best_time', time.toString());
+        bestEl.textContent = time.toFixed(3);
+        return true; // 新記録
+      }
+    } catch (e) {
+      console.log('localStorage 保存失敗');
+    }
+    return false;
+  }
+
+  /* =========================================
+     ピアノ音の生成(Web Audio API)
+     基音 + 2倍音 + 3倍音 でアコースティックピアノに近い豊かな響き
+     ========================================= */
+  function playSound(frequency) {
+    try {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      // iOS Safari対応: ユーザー操作後にresume必須
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+
+      const now = audioCtx.currentTime;
+
+      // 基音(正弦波)
+      const fundamental = audioCtx.createOscillator();
+      const fundGain = audioCtx.createGain();
+      fundamental.type = 'sine';
+      fundamental.frequency.setValueAtTime(frequency, now);
+      fundGain.gain.setValueAtTime(0, now);
+      fundGain.gain.linearRampToValueAtTime(0.35, now + 0.005);
+      fundGain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+      fundamental.connect(fundGain).connect(audioCtx.destination);
+      fundamental.start(now);
+      fundamental.stop(now + 1.2);
+
+      // 2倍音(オクターブ上)
+      const harmonic2 = audioCtx.createOscillator();
+      const harm2Gain = audioCtx.createGain();
+      harmonic2.type = 'sine';
+      harmonic2.frequency.setValueAtTime(frequency * 2, now);
+      harm2Gain.gain.setValueAtTime(0, now);
+      harm2Gain.gain.linearRampToValueAtTime(0.12, now + 0.005);
+      harm2Gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+      harmonic2.connect(harm2Gain).connect(audioCtx.destination);
+      harmonic2.start(now);
+      harmonic2.stop(now + 0.8);
+
+      // 3倍音(響きに豊かさを追加)
+      const harmonic3 = audioCtx.createOscillator();
+      const harm3Gain = audioCtx.createGain();
+      harmonic3.type = 'sine';
+      harmonic3.frequency.setValueAtTime(frequency * 3, now);
+      harm3Gain.gain.setValueAtTime(0, now);
+      harm3Gain.gain.linearRampToValueAtTime(0.06, now + 0.005);
+      harm3Gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+      harmonic3.connect(harm3Gain).connect(audioCtx.destination);
+      harmonic3.start(now);
+      harmonic3.stop(now + 0.5);
+    } catch (e) {
+      console.log('音声再生エラー:', e);
+    }
+  }
+
+  /* =========================================
+     タイマー更新ループ(60fpsでなめらかに)
+     ========================================= */
+  function updateTimer() {
+    if (!isPlaying) return;
+    const elapsed = (performance.now() - startTime) / 1000;
+    timerEl.textContent = elapsed.toFixed(3);
+    timerRAF = requestAnimationFrame(updateTimer);
+  }
+
+  /* =========================================
+     ゲーム開始処理
+     ========================================= */
+  function startGame() {
+    isPlaying = true;
+    isFinished = false;
+    startTime = performance.now();
+    statusEl.classList.remove('show');
+    updateTimer();
+  }
+
+  /* =========================================
+     ゲームクリア処理
+     ========================================= */
+  function finishGame() {
+    isPlaying = false;
+    isFinished = true;
+    cancelAnimationFrame(timerRAF);
+
+    const finalTime = (performance.now() - startTime) / 1000;
+    timerEl.textContent = finalTime.toFixed(3);
+
+    const isNewBest = saveBest(finalTime);
+
+    // クラシック調のクリアメッセージ
+    statusEl.textContent = isNewBest
+      ? `✦ Bravissimo! ${finalTime.toFixed(3)} ✦`
+      : `Finale — ${finalTime.toFixed(3)}`;
+    statusEl.classList.add('show');
+
+    restartBtn.classList.add('show');
+
+    // 音符が舞うエフェクト
+    launchNotes(isNewBest);
+  }
+
+  /* =========================================
+     クリア演出: 音符記号が優雅に舞い降りる
+     ========================================= */
+  function launchNotes(isSpecial) {
+    const noteSymbols = ['♪', '♫', '♩', '♬', '𝄞'];
+    const count = isSpecial ? 50 : 25;
+
+    for (let i = 0; i < count; i++) {
+      const note = document.createElement('div');
+      note.className = 'note-particle';
+      note.textContent = noteSymbols[Math.floor(Math.random() * noteSymbols.length)];
+      note.style.left = Math.random() * 100 + '%';
+      note.style.top = '-40px';
+      // セピア系の色で統一感を出す
+      const colors = ['#6B4423', '#8B5A2B', '#4A2D17', '#3D2817'];
+      note.style.color = colors[Math.floor(Math.random() * colors.length)];
+      note.style.fontSize = (20 + Math.random() * 24) + 'px';
+      note.style.opacity = 0.7 + Math.random() * 0.3;
+      document.body.appendChild(note);
+
+      // ゆっくり優雅に降下
+      const duration = 3000 + Math.random() * 2000;
+      const xDrift = (Math.random() - 0.5) * 300;
+      note.animate([
+        { transform: 'translate(0, 0) rotate(0deg)', opacity: note.style.opacity },
+        { transform: `translate(${xDrift}px, ${window.innerHeight + 80}px) rotate(${Math.random() * 360}deg)`, opacity: 0 }
+      ], {
+        duration: duration,
+        easing: 'cubic-bezier(0.4, 0, 0.6, 1)'
+      }).onfinish = () => note.remove();
+    }
+  }
+
+  /* =========================================
+     次に押すべき鍵盤のハイライト更新
+     ========================================= */
+  function updateHighlight() {
+    keys.forEach((key, idx) => {
+      key.classList.remove('next');
+      if (!isFinished && idx === currentNote) {
+        key.classList.add('next');
+      }
+    });
+  }
+
+  /* =========================================
+     鍵盤押下時のメイン処理
+     ========================================= */
+  function handleKeyPress(keyEl) {
+    if (isFinished) return;
+
+    const noteIndex = parseInt(keyEl.dataset.note);
+    const frequency = parseFloat(keyEl.dataset.freq);
+
+    // 【機能B】最低音のド(noteIndex=0)が押されたらタイマー開始
+    if (!isPlaying && noteIndex === 0) {
+      startGame();
+    }
+
+    // ゲーム未開始で0以外を押した場合: 音と視覚フィードバックのみ
+    if (!isPlaying) {
+      playSound(frequency);
+      keyEl.classList.add('pressed');
+      setTimeout(() => keyEl.classList.remove('pressed'), 100);
+      return;
+    }
+
+    // 正しい順番の鍵盤を押した場合
+    if (noteIndex === currentNote) {
+      playSound(frequency);
+
+      keyEl.classList.add('pressed');
+      setTimeout(() => {
+        keyEl.classList.remove('pressed');
+        keyEl.classList.add('done');
+      }, 80);
+
+      currentNote++;
+
+      // 【機能C】全鍵盤を押し終わったらタイマー停止
+      if (currentNote >= TOTAL_KEYS) {
+        finishGame();
+      } else {
+        updateHighlight();
+      }
+    } else {
+      // 順番違いの場合: 音は鳴らすが進行はせず、軽くシェイク
+      playSound(frequency);
+      keyEl.style.animation = 'shake 0.3s';
+      setTimeout(() => {
+        keyEl.style.animation = '';
+      }, 300);
+    }
+  }
+
+  /* =========================================
+     ゲームリセット処理
+     ========================================= */
+  function resetGame() {
+    currentNote = 0;
+    isPlaying = false;
+    isFinished = false;
+    startTime = 0;
+    cancelAnimationFrame(timerRAF);
+    timerEl.textContent = '0.000';
+    statusEl.textContent = '— Press the lowest Do to begin —';
+    statusEl.classList.add('show');
+    restartBtn.classList.remove('show');
+
+    keys.forEach(key => {
+      key.classList.remove('pressed', 'done', 'next');
+    });
+
+    updateHighlight();
+  }
+
+  /* =========================================
+     イベントリスナー登録
+     iPad対応: touchstartを優先(遅延ゼロ)
+     ========================================= */
+  keys.forEach(key => {
+    key.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      handleKeyPress(key);
+    }, { passive: false });
+
+    // PC動作確認用
+    key.addEventListener('mousedown', (e) => {
+      if ('ontouchstart' in window) return;
+      handleKeyPress(key);
+    });
+  });
+
+  restartBtn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    resetGame();
+  }, { passive: false });
+  restartBtn.addEventListener('click', (e) => {
+    if ('ontouchstart' in window) return;
+    resetGame();
+  });
+
+  // 揺れアニメーションを動的追加
+  const styleSheet = document.createElement('style');
+  styleSheet.textContent = `
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-6px); }
+      75% { transform: translateX(6px); }
+    }
+  `;
+  document.head.appendChild(styleSheet);
+
+  /* =========================================
+     初期化処理
+     ========================================= */
+  loadBest();
+  updateHighlight();
+  statusEl.classList.add('show');
+
+  // iOS Safariのバウンス防止
+  document.body.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+  }, { passive: false });
+
+  /* =========================================
+     【サンプルデータ・動作確認用】
+     -----------------------------------------
+     コンソールで以下を実行するとベストタイムを仮セット可:
+       localStorage.setItem('piano_best_time', '3.456');
+       location.reload();
+
+     リセット:
+       localStorage.removeItem('piano_best_time');
+       location.reload();
+     ========================================= */
+</script>
+
+</body>
+</html>
